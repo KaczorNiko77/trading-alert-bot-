@@ -1,0 +1,45 @@
+name: Execution bridge (MT5 demo)
+
+# Deliberately workflow_dispatch ONLY — no schedule. Trigger it manually
+# from the Actions tab each time while you're validating this. Once you've
+# watched several dry runs behave correctly and are comfortable, you can
+# add a `schedule:` trigger yourself (see alert.yml for the cron syntax) —
+# that's an intentional choice this workflow doesn't make for you.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install
+      # execution-state.json tracks today's starting equity for the daily
+      # loss limit, so it survives across runs even though each run is a
+      # fresh container.
+      - uses: actions/cache@v4
+        with:
+          path: execution-state.json
+          key: execution-state-${{ github.run_id }}
+          restore-keys: execution-state-
+      - run: npm run execute
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          METAAPI_TOKEN: ${{ secrets.METAAPI_TOKEN }}
+          MT5_LOGIN: ${{ secrets.MT5_LOGIN }}
+          MT5_PASSWORD: ${{ secrets.MT5_PASSWORD }}
+          MT5_SERVER: ${{ secrets.MT5_SERVER }}
+          # Must be the literal string "true" in the repo's secrets for real
+          # orders to place — anything else runs a dry run. Keep this unset
+          # (or "false") until you've verified several dry runs look right.
+          EXECUTION_ENABLED: ${{ secrets.EXECUTION_ENABLED }}
+          RISK_PCT_PER_TRADE: ${{ secrets.RISK_PCT_PER_TRADE }}
+          MAX_POSITION_PCT: ${{ secrets.MAX_POSITION_PCT }}
+          MAX_DAILY_LOSS_PCT: ${{ secrets.MAX_DAILY_LOSS_PCT }}
+          KILL_SWITCH: ${{ secrets.KILL_SWITCH }}
+          AUTO_BREAKEVEN: ${{ secrets.AUTO_BREAKEVEN }}
